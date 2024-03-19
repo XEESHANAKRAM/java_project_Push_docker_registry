@@ -1,39 +1,39 @@
 pipeline {
-    agent any
-    tools{
-        maven 'maven_3_5_0'
+  agent any
+  tools {
+    maven 'maven'
+  }
+  stages {
+    stage('Build Maven') {
+      steps {
+        script {
+          checkout([$class: 'GitSCM',
+                    branches: [[name: '*/main']],
+                    userRemoteConfigs: [[url: 'https://github.com/XEESHANAKRAM/java_project_Push_docker_registry']]])
+          sh 'mvn clean install'
+        }
+      }
     }
-    stages{
-        stage('Build Maven'){
-            steps{
-                checkout([$class: 'GitSCM', branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/Java-Techie-jt/devops-automation']]])
-                sh 'mvn clean install'
-            }
-        }
-        stage('Build docker image'){
-            steps{
-                script{
-                    sh 'docker build -t javatechie/devops-integration .'
-                }
-            }
-        }
-        stage('Push image to Hub'){
-            steps{
-                script{
-                   withCredentials([string(credentialsId: 'dockerhub-pwd', variable: 'dockerhubpwd')]) {
-                   sh 'docker login -u javatechie -p ${dockerhubpwd}'
-
-}
-                   sh 'docker push javatechie/devops-integration'
-                }
-            }
-        }
-        stage('Deploy to k8s'){
-            steps{
-                script{
-                    kubernetesDeploy (configs: 'deploymentservice.yaml',kubeconfigId: 'k8sconfigpwd')
-                }
-            }
-        }
+    stage('Build Docker Image') {
+      steps {
+        sh 'docker build -t xeeshanakram/devops-integration .'
+      }
     }
+    stage('Push Image to Docker Hub') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+          sh 'docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD'
+          sh 'docker push xeeshanakram/devops-integration'
+        }
+      }
+    }
+    stage('Deploy to Minikube') {
+      steps {
+        script {
+          checkout scm
+          sh 'kubectl apply -f deploymentservice.yaml --context=minikube'
+        }
+      }
+    }
+  }
 }
